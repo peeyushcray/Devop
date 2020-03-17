@@ -1,0 +1,92 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "workflows_PayAggregration_name": {
+      "defaultValue": "Devop",
+      "type": "String"
+    },
+    "integrationAccounts_Peeyushpay_externalid": {
+      "defaultValue": "/subscriptions/310e4856-88aa-42fe-89e6-b964f7797bf9/resourceGroups/myfirstlogicapp/providers/Microsoft.Logic/integrationAccounts/Peeyushpay",
+      "type": "String"
+    }
+  },
+  "variables": {},
+  "resources": [
+    {
+      "type": "Microsoft.Logic/workflows",
+      "apiVersion": "2017-07-01",
+      "name": "[parameters('workflows_PayAggregration_name')]",
+      "location": "southindia",
+      "properties": {
+        "state": "Enabled",
+        "integrationAccount": {
+          "id": "[parameters('integrationAccounts_Peeyushpay_externalid')]"
+        },
+        "definition": {
+          "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+          "contentVersion": "1.0.0.0",
+          "parameters": {},
+          "triggers": {
+            "manual": {
+              "type": "Request",
+              "kind": "Http",
+              "inputs": {
+                "schema": {}
+              }
+            }
+          },
+          "actions": {
+            "Compose": {
+              "runAfter": {
+                "Flat_File_Decoding": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Compose",
+              "inputs": "@body('Flat_File_Decoding')"
+            },
+            "Flat_File_Decoding": {
+              "runAfter": {},
+              "type": "FlatFileDecoding",
+              "inputs": {
+                "content": "@{triggerBody()}",
+                "integrationAccount": {
+                  "schema": {
+                    "name": "PeeyushNewSchema"
+                  }
+                }
+              }
+            },
+            "For_each": {
+              "foreach": "@xpath(xml(body('Flat_File_Decoding')),'//*[local-name()=\"Employee\"]')",
+              "actions": {
+                "Transform_XML_to_JSON": {
+                  "runAfter": {},
+                  "type": "Liquid",
+                  "kind": "XmlToJson",
+                  "inputs": {
+                    "content": "@{items('For_each')}",
+                    "integrationAccount": {
+                      "map": {
+                        "name": "Peeyush.Liquid"
+                      }
+                    }
+                  }
+                }
+              },
+              "runAfter": {
+                "Compose": [
+                  "Succeeded"
+                ]
+              },
+              "type": "Foreach"
+            }
+          },
+          "outputs": {}
+        },
+        "parameters": {}
+      }
+    }
+  ]
+}
